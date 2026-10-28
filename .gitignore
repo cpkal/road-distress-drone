@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Media, frames, model weights
+api/data/*
+api/models/*
+!api/data/.gitkeep
+!api/models/.gitkeep
+*.pt
+
+# Python
+.venv/
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+
+# Node / Nuxt
+node_modules/
+.nuxt/
+.output/
+.data/
+.nitro/
+.cache/
+dist/
+*.log
+
