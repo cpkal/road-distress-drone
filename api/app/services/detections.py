@@ -8,6 +8,7 @@ from app.domain.distress import DistressClass
 from app.models.upload import Detection, Frame, Upload, UploadKind
 from app.schemas.detection import (
     DetectionDetail,
+    FrameDetectionItem,
     GeoJSONPoint,
     MapDetectionFeature,
     MapDetectionFeatureCollection,
@@ -90,6 +91,23 @@ def get_detection_detail(
         else None
     )
 
+    sibling_rows = list(
+        db.scalars(
+            select(Detection)
+            .where(Detection.frame_id == frame.id)
+            .order_by(Detection.confidence.desc(), Detection.id.asc())
+        )
+    )
+    frame_detections = [
+        FrameDetectionItem(
+            id=sibling.id,
+            class_name=DistressClass(sibling.class_name),
+            confidence=sibling.confidence,
+            bbox=[float(v) for v in sibling.bbox],
+        )
+        for sibling in sibling_rows
+    ]
+
     return DetectionDetail(
         id=det.id,
         class_name=DistressClass(det.class_name),
@@ -105,4 +123,5 @@ def get_detection_detail(
         upload_created_at=upload.created_at,
         frame_id=frame.id,
         image_url=f"/frames/{frame.id}/image",
+        frame_detections=frame_detections,
     )

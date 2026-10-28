@@ -14,8 +14,8 @@ export default defineNuxtConfig({
       // Overridden by NUXT_PUBLIC_API_BASE / NUXT_PUBLIC_MAP_*
       apiBase: 'http://localhost:8000',
       mapStyleUrl: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-      mapDefaultCenter: '100.5018,13.7563',
-      mapDefaultZoom: '12',
+      mapDefaultCenter: '107.6035,-6.9425',
+      mapDefaultZoom: '14',
     },
   },
 })

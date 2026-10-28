@@ -1,5 +1,6 @@
 from collections.abc import Callable, Generator, Sequence
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,9 +20,11 @@ from app.services.detector import (
     DetectorProtocol,
     FrameCandidate,
     RawPrediction,
+    UltralyticsYoloDetector,
     ValidatedDetection,
     deduplicate_detections,
     get_detector,
+    validate_predictions,
 )
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -85,18 +88,136 @@ def test_normalize_distress_class_accepts_known_and_rejects_unknown() -> None:
         == DistressClass.TRANSVERSE_CRACKING
     )
     assert (
+        normalize_distress_class("Transverse crack")
+        == DistressClass.TRANSVERSE_CRACKING
+    )
+    assert (
+        normalize_distress_class("Oblique crack") == DistressClass.TRANSVERSE_CRACKING
+    )
+    assert (
         normalize_distress_class("longitudinal cracking")
+        == DistressClass.LONGITUDINAL_CRACKING
+    )
+    assert (
+        normalize_distress_class("Longitudinal crack")
         == DistressClass.LONGITUDINAL_CRACKING
     )
     assert (
         normalize_distress_class("alligator-cracking")
         == DistressClass.ALLIGATOR_CRACKING
     )
+    assert (
+        normalize_distress_class("Alligator crack") == DistressClass.ALLIGATOR_CRACKING
+    )
+    assert normalize_distress_class("Block crack") == DistressClass.ALLIGATOR_CRACKING
     assert normalize_distress_class("patch") == DistressClass.PATCH
+    assert normalize_distress_class("Repair") == DistressClass.PATCH
     assert normalize_distress_class("POTHOLE") == DistressClass.POTHOLE
 
     with pytest.raises(UnknownDistressClassError, match="Unknown model distress class"):
         normalize_distress_class("manhole_cover")
+
+
+def test_validate_predictions_merges_overlapping_crackings_and_preserves_distinct() -> (
+    None
+):
+    raw = [
+        # Two overlapping transverse crack detections (one from Transverse crack, one from Oblique crack)
+        RawPrediction("Transverse crack", 0.72, [0.10, 0.20, 0.40, 0.50]),
+        RawPrediction("Oblique crack", 0.88, [0.25, 0.20, 0.55, 0.50]),
+        # A far-away longitudinal crack that does not overlap
+        RawPrediction("Longitudinal crack", 0.65, [0.70, 0.10, 0.85, 0.60]),
+        # Two overlapping potholes in the same frame should NOT be union-merged by crack postprocessing
+        RawPrediction("Pothole", 0.80, [0.10, 0.70, 0.25, 0.85]),
+        RawPrediction("Pothole", 0.60, [0.12, 0.72, 0.22, 0.82]),
+    ]
+
+    validated = validate_predictions(raw, min_confidence=0.25, match_threshold=0.5)
+
+    transverse = [
+        d for d in validated if d.class_name == DistressClass.TRANSVERSE_CRACKING
+    ]
+    longitudinal = [
+        d for d in validated if d.class_name == DistressClass.LONGITUDINAL_CRACKING
+    ]
+    potholes = [d for d in validated if d.class_name == DistressClass.POTHOLE]
+
+    assert len(transverse) == 1
+    assert transverse[0].confidence == pytest.approx(0.88)
+    assert transverse[0].bbox == pytest.approx([0.10, 0.20, 0.55, 0.50])
+    assert len(longitudinal) == 1
+    assert len(potholes) == 2
+
+
+def test_ultralytics_yolo_detector_uses_sahi_sliced_prediction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    weights_path = tmp_path / "best.pt"
+    weights_path.write_bytes(b"fake-weights")
+    image_path = tmp_path / "frame.jpg"
+    image_path.write_bytes(b"fake-jpeg")
+
+    captured_model_kwargs: dict[str, object] = {}
+    captured_slice_kwargs: dict[str, object] = {}
+    sentinel_model = object()
+
+    def fake_from_pretrained(**kwargs: object) -> object:
+        captured_model_kwargs.update(kwargs)
+        return sentinel_model
+
+    def fake_get_sliced_prediction(**kwargs: object) -> object:
+        captured_slice_kwargs.update(kwargs)
+        fake_pred = SimpleNamespace(
+            bbox=SimpleNamespace(to_xyxy=lambda: [200.0, 100.0, 600.0, 500.0]),
+            score=SimpleNamespace(value=0.85),
+            category=SimpleNamespace(name="Alligator crack"),
+        )
+        return SimpleNamespace(
+            image_width=1000,
+            image_height=1000,
+            object_prediction_list=[fake_pred],
+        )
+
+    import sahi
+    import sahi.predict
+
+    monkeypatch.setattr(
+        sahi.AutoDetectionModel, "from_pretrained", fake_from_pretrained
+    )
+    monkeypatch.setattr(
+        sahi.predict, "get_sliced_prediction", fake_get_sliced_prediction
+    )
+
+    detector = UltralyticsYoloDetector(
+        model_path=weights_path,
+        min_confidence=0.30,
+    )
+    preds = detector.predict(image_path)
+
+    assert captured_model_kwargs == {
+        "model_type": "ultralytics",
+        "model_path": str(weights_path),
+        "confidence_threshold": 0.30,
+        "device": "cpu",
+    }
+    assert captured_slice_kwargs == {
+        "image": str(image_path),
+        "detection_model": sentinel_model,
+        "slice_height": 640,
+        "slice_width": 640,
+        "overlap_height_ratio": 0.2,
+        "overlap_width_ratio": 0.2,
+        "perform_standard_pred": False,
+        "postprocess_type": "GREEDYNMM",
+        "postprocess_match_metric": "IOS",
+        "postprocess_match_threshold": 0.5,
+        "verbose": 0,
+    }
+    assert len(preds) == 1
+    assert preds[0].class_name == "Alligator crack"
+    assert preds[0].confidence == pytest.approx(0.85)
+    assert preds[0].bbox == pytest.approx([0.2, 0.1, 0.6, 0.5])
 
 
 def test_deduplicate_detections_transitive_and_same_frame_rules() -> None:

@@ -346,6 +346,11 @@ def test_map_detections_filters_null_exclusion_and_detail(
             assert detail["upload_kind"] == "photos"
             assert detail["image_url"].startswith("/frames/")
             assert detail["image_url"].endswith("/image")
+            assert len(detail["frame_detections"]) == 2
+            assert [d["class"] for d in detail["frame_detections"]] == [
+                "pothole",
+                "alligator_cracking",
+            ]
 
             # Unknown detection ID -> 404
             assert client.get(f"/detections/{uuid.uuid4()}").status_code == 404

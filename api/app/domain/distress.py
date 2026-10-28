@@ -43,7 +43,31 @@ DISTRESS_CLASSES: dict[DistressClass, DistressClassInfo] = {
     ),
 }
 
-_MODEL_NAME_LOOKUP: dict[str, DistressClass] = {}
+CRACK_DISTRESS_CLASSES: frozenset[DistressClass] = frozenset(
+    {
+        DistressClass.TRANSVERSE_CRACKING,
+        DistressClass.LONGITUDINAL_CRACKING,
+        DistressClass.ALLIGATOR_CRACKING,
+    }
+)
+
+_MODEL_NAME_LOOKUP: dict[str, DistressClass] = {
+    "alligator crack": DistressClass.ALLIGATOR_CRACKING,
+    "alligator_crack": DistressClass.ALLIGATOR_CRACKING,
+    "block crack": DistressClass.ALLIGATOR_CRACKING,
+    "block_crack": DistressClass.ALLIGATOR_CRACKING,
+    "block cracking": DistressClass.ALLIGATOR_CRACKING,
+    "block_cracking": DistressClass.ALLIGATOR_CRACKING,
+    "longitudinal crack": DistressClass.LONGITUDINAL_CRACKING,
+    "longitudinal_crack": DistressClass.LONGITUDINAL_CRACKING,
+    "transverse crack": DistressClass.TRANSVERSE_CRACKING,
+    "transverse_crack": DistressClass.TRANSVERSE_CRACKING,
+    "oblique crack": DistressClass.TRANSVERSE_CRACKING,
+    "oblique_crack": DistressClass.TRANSVERSE_CRACKING,
+    "oblique cracking": DistressClass.TRANSVERSE_CRACKING,
+    "oblique_cracking": DistressClass.TRANSVERSE_CRACKING,
+    "repair": DistressClass.PATCH,
+}
 for _cls, _info in DISTRESS_CLASSES.items():
     _MODEL_NAME_LOOKUP[_cls.value] = _cls
     _MODEL_NAME_LOOKUP[_info.label.lower()] = _cls

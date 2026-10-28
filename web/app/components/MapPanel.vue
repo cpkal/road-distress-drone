@@ -88,6 +88,7 @@ function formatCoords(coords: [number, number]): string {
       v-if="selectedDetectionId"
       :detection-id="selectedDetectionId"
       @close="emit('clearSelection')"
+      @select-detection="emit('selectDetection', $event)"
     />
 
     <template v-else>

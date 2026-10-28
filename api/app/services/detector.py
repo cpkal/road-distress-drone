@@ -7,7 +7,11 @@ from typing import Annotated, Any, Protocol
 from fastapi import Depends
 
 from app.config import Settings, get_settings
-from app.domain.distress import DistressClass, normalize_distress_class
+from app.domain.distress import (
+    CRACK_DISTRESS_CLASSES,
+    DistressClass,
+    normalize_distress_class,
+)
 
 EARTH_RADIUS_M = 6_371_000.0
 
@@ -43,11 +47,29 @@ class DetectorProtocol(Protocol):
 
 
 class UltralyticsYoloDetector:
-    """CPU YOLO detector backed by Ultralytics."""
+    """CPU YOLO detector backed by Ultralytics and SAHI sliced inference."""
 
-    def __init__(self, model_path: Path, min_confidence: float = 0.25) -> None:
+    def __init__(
+        self,
+        model_path: Path,
+        min_confidence: float = 0.25,
+        slice_height: int = 640,
+        slice_width: int = 640,
+        overlap_height_ratio: float = 0.2,
+        overlap_width_ratio: float = 0.2,
+        postprocess_type: str = "GREEDYNMM",
+        postprocess_match_metric: str = "IOS",
+        postprocess_match_threshold: float = 0.35,
+    ) -> None:
         self._model_path = model_path
         self._min_confidence = min_confidence
+        self._slice_height = slice_height
+        self._slice_width = slice_width
+        self._overlap_height_ratio = overlap_height_ratio
+        self._overlap_width_ratio = overlap_width_ratio
+        self._postprocess_type = postprocess_type
+        self._postprocess_match_metric = postprocess_match_metric
+        self._postprocess_match_threshold = postprocess_match_threshold
         self._model: Any = None
 
     def _load_model(self) -> Any:
@@ -58,9 +80,14 @@ class UltralyticsYoloDetector:
                 f"YOLO model weights not found at '{self._model_path}'."
             )
         try:
-            from ultralytics import YOLO
+            from sahi import AutoDetectionModel
 
-            self._model = YOLO(str(self._model_path))
+            self._model = AutoDetectionModel.from_pretrained(
+                model_type="ultralytics",
+                model_path=str(self._model_path),
+                confidence_threshold=self._min_confidence,
+                device="cpu",
+            )
         except Exception as exc:
             raise DetectionError(
                 f"Failed to load YOLO model from '{self._model_path}': {exc}"
@@ -70,39 +97,50 @@ class UltralyticsYoloDetector:
     def predict(self, image_path: Path) -> Sequence[RawPrediction]:
         if not image_path.is_file():
             raise DetectionError(f"Frame image not found at '{image_path}'.")
-        model = self._load_model()
+        detection_model = self._load_model()
         try:
-            results = model.predict(
-                source=str(image_path),
-                conf=self._min_confidence,
-                device="cpu",
-                verbose=False,
+            from sahi.predict import get_sliced_prediction
+
+            result = get_sliced_prediction(
+                image=str(image_path),
+                detection_model=detection_model,
+                slice_height=self._slice_height,
+                slice_width=self._slice_width,
+                overlap_height_ratio=self._overlap_height_ratio,
+                overlap_width_ratio=self._overlap_width_ratio,
+                perform_standard_pred=False,
+                postprocess_type=self._postprocess_type,
+                postprocess_match_metric=self._postprocess_match_metric,
+                postprocess_match_threshold=self._postprocess_match_threshold,
+                verbose=0,
             )
         except Exception as exc:
             raise DetectionError(
-                f"YOLO inference failed on '{image_path.name}': {exc}"
+                f"YOLO SAHI inference failed on '{image_path.name}': {exc}"
             ) from exc
 
+        img_w = float(getattr(result, "image_width", 0) or 0)
+        img_h = float(getattr(result, "image_height", 0) or 0)
+        if img_w <= 0 or img_h <= 0:
+            raise DetectionError(
+                f"Invalid image dimensions ({img_w}x{img_h}) returned for '{image_path.name}'."
+            )
+
         predictions: list[RawPrediction] = []
-        for result in results:
-            names: dict[int, str] = getattr(result, "names", {}) or {}
-            boxes = getattr(result, "boxes", None)
-            if boxes is None:
-                continue
-            xyxyn_list = boxes.xyxyn.tolist()
-            conf_list = boxes.conf.tolist()
-            cls_list = boxes.cls.tolist()
-            for coords, conf, cls_idx in zip(
-                xyxyn_list, conf_list, cls_list, strict=False
-            ):
-                raw_label = names.get(int(cls_idx), str(int(cls_idx)))
-                predictions.append(
-                    RawPrediction(
-                        class_name=str(raw_label),
-                        confidence=float(conf),
-                        bbox=[float(c) for c in coords[:4]],
-                    )
+        for obj_pred in getattr(result, "object_prediction_list", []) or []:
+            x_min, y_min, x_max, y_max = obj_pred.bbox.to_xyxy()
+            predictions.append(
+                RawPrediction(
+                    class_name=str(obj_pred.category.name),
+                    confidence=float(obj_pred.score.value),
+                    bbox=[
+                        _clamp_01(float(x_min) / img_w),
+                        _clamp_01(float(y_min) / img_h),
+                        _clamp_01(float(x_max) / img_w),
+                        _clamp_01(float(y_max) / img_h),
+                    ],
                 )
+            )
         return predictions
 
 
@@ -110,9 +148,91 @@ def _clamp_01(value: float) -> float:
     return max(0.0, min(1.0, float(value)))
 
 
+def _box_match_score(
+    box_a: Sequence[float],
+    box_b: Sequence[float],
+    match_metric: str = "IOS",
+) -> float:
+    ax1, ay1, ax2, ay2 = box_a
+    bx1, by1, bx2, by2 = box_b
+
+    inter_w = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+    inter_h = max(0.0, min(ay2, by2) - max(ay1, by1))
+    inter_area = inter_w * inter_h
+    if inter_area <= 0.0:
+        return 0.0
+
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+
+    if match_metric.upper() == "IOU":
+        denom = area_a + area_b - inter_area
+    else:
+        denom = min(area_a, area_b)
+
+    if denom <= 0.0:
+        return 0.0
+    return inter_area / denom
+
+
+def merge_overlapping_crack_detections(
+    detections: Sequence[ValidatedDetection],
+    match_threshold: float = 0.5,
+    match_metric: str = "IOS",
+) -> list[ValidatedDetection]:
+    """Merge overlapping same-class cracking detections within a frame using Greedy NMM."""
+    non_crack: list[ValidatedDetection] = []
+    crack_by_class: dict[DistressClass, list[ValidatedDetection]] = {}
+
+    for det in detections:
+        if det.class_name in CRACK_DISTRESS_CLASSES:
+            crack_by_class.setdefault(det.class_name, []).append(det)
+        else:
+            non_crack.append(det)
+
+    merged_cracks: list[ValidatedDetection] = []
+    for cls_name, cls_dets in crack_by_class.items():
+        remaining = sorted(cls_dets, key=lambda d: d.confidence, reverse=True)
+        while remaining:
+            seed = remaining.pop(0)
+            curr_bbox = list(seed.bbox)
+            best_conf = seed.confidence
+
+            changed = True
+            while changed and remaining:
+                changed = False
+                still_unmerged: list[ValidatedDetection] = []
+                for other in remaining:
+                    score = _box_match_score(curr_bbox, other.bbox, match_metric)
+                    if score >= match_threshold:
+                        curr_bbox = [
+                            min(curr_bbox[0], other.bbox[0]),
+                            min(curr_bbox[1], other.bbox[1]),
+                            max(curr_bbox[2], other.bbox[2]),
+                            max(curr_bbox[3], other.bbox[3]),
+                        ]
+                        best_conf = max(best_conf, other.confidence)
+                        changed = True
+                    else:
+                        still_unmerged.append(other)
+                remaining = still_unmerged
+
+            merged_cracks.append(
+                ValidatedDetection(
+                    class_name=cls_name,
+                    confidence=best_conf,
+                    bbox=curr_bbox,
+                )
+            )
+
+    return [*merged_cracks, *non_crack]
+
+
 def validate_predictions(
     raw_predictions: Sequence[RawPrediction],
     min_confidence: float,
+    match_threshold: float = 0.5,
+    match_metric: str = "IOS",
 ) -> list[ValidatedDetection]:
     validated: list[ValidatedDetection] = []
     for pred in raw_predictions:
@@ -136,7 +256,11 @@ def validate_predictions(
                 bbox=[x_min, y_min, x_max, y_max],
             )
         )
-    return validated
+    return merge_overlapping_crack_detections(
+        validated,
+        match_threshold=match_threshold,
+        match_metric=match_metric,
+    )
 
 
 def haversine_distance_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -276,4 +400,11 @@ def get_detector(
     return UltralyticsYoloDetector(
         model_path=Path(settings.model_path),
         min_confidence=settings.min_confidence,
+        slice_height=settings.sahi_slice_height,
+        slice_width=settings.sahi_slice_width,
+        overlap_height_ratio=settings.sahi_overlap_height_ratio,
+        overlap_width_ratio=settings.sahi_overlap_width_ratio,
+        postprocess_type=settings.sahi_postprocess_type,
+        postprocess_match_metric=settings.sahi_postprocess_match_metric,
+        postprocess_match_threshold=settings.sahi_postprocess_match_threshold,
     )

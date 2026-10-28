@@ -225,6 +225,13 @@ def process_upload(
     active_detector = detector or UltralyticsYoloDetector(
         model_path=Path(settings.model_path),
         min_confidence=settings.min_confidence,
+        slice_height=settings.sahi_slice_height,
+        slice_width=settings.sahi_slice_width,
+        overlap_height_ratio=settings.sahi_overlap_height_ratio,
+        overlap_width_ratio=settings.sahi_overlap_width_ratio,
+        postprocess_type=settings.sahi_postprocess_type,
+        postprocess_match_metric=settings.sahi_postprocess_match_metric,
+        postprocess_match_threshold=settings.sahi_postprocess_match_threshold,
     )
 
     try:
@@ -249,7 +256,10 @@ def process_upload(
         for idx, spec in enumerate(frame_specs):
             raw_preds = active_detector.predict(spec.temp_image_path)
             validated: list[ValidatedDetection] = validate_predictions(
-                raw_preds, settings.min_confidence
+                raw_preds,
+                settings.min_confidence,
+                match_threshold=settings.sahi_postprocess_match_threshold,
+                match_metric=settings.sahi_postprocess_match_metric,
             )
             candidates.append(
                 FrameCandidate(

@@ -62,7 +62,7 @@ let mapInstance: MapLibreMap | null = null
 let resizeObserver: ResizeObserver | null = null
 
 const defaultCenter = computed<[number, number]>(() => {
-  const raw = String(config.public.mapDefaultCenter || '100.5018,13.7563')
+  const raw = String(config.public.mapDefaultCenter || '107.6035,-6.9425')
   const parts = raw.split(',').map(part => Number.parseFloat(part.trim()))
   if (
     parts.length === 2
@@ -71,12 +71,12 @@ const defaultCenter = computed<[number, number]>(() => {
   ) {
     return [parts[0] as number, parts[1] as number]
   }
-  return [100.5018, 13.7563]
+  return [107.6035, -6.9425]
 })
 
 const defaultZoom = computed<number>(() => {
-  const parsed = Number.parseFloat(String(config.public.mapDefaultZoom || '12'))
-  return Number.isFinite(parsed) ? parsed : 12
+  const parsed = Number.parseFloat(String(config.public.mapDefaultZoom || '14'))
+  return Number.isFinite(parsed) ? parsed : 14
 })
 
 const styleUrl = computed<string>(() => {

@@ -172,6 +172,8 @@ export interface components {
             frame_id: string;
             /** Image Url */
             image_url: string;
+            /** Frame Detections */
+            frame_detections?: components["schemas"]["FrameDetectionItem"][];
         };
         /** DetectionFeature */
         DetectionFeature: {
@@ -226,6 +228,19 @@ export interface components {
          * @enum {string}
          */
         DistressClass: "transverse_cracking" | "longitudinal_cracking" | "alligator_cracking" | "patch" | "pothole";
+        /** FrameDetectionItem */
+        FrameDetectionItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            class: components["schemas"]["DistressClass"];
+            /** Confidence */
+            confidence: number;
+            /** Bbox */
+            bbox: number[];
+        };
         /** GeoJSONPoint */
         GeoJSONPoint: {
             /**
