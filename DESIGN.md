@@ -38,10 +38,7 @@ export default defineVuetifyConfiguration({
           error: '#FFB4AB',
           success: '#81C784',
           info: '#4FC3F7',
-          // Distress severity: used by map markers, chips, and legend
-          'severity-low': '#FFD54F',
-          'severity-medium': '#FF9800',
-          'severity-high': '#F44336',
+          warning: '#FFD54F',
         },
       },
     },
@@ -51,16 +48,16 @@ export default defineVuetifyConfiguration({
 
 ## Rules
 
-- **Colors come from theme tokens only** (`color="primary"`, `bg-surface`, `bg-severity-high`). Never write hex values in components.
+- **Colors come from theme tokens only** (`color="primary"`, `bg-surface`, `bg-error`). Never write hex values in components.
 - **Spacing and type use Vuetify classes** (`pa-4`, `ga-2`, `text-h6`, `text-body-1`). Stick to the 8px grid. Don't write custom CSS if a prop or class exists.
-- **Severity is never color alone.** Always pair the color with a label or icon (low / medium / high).
-- **Distress classes and severity levels are defined once** (class → label, icon, severity) in `web/app/constants/distress.ts`, matching the API. Don't redefine them in components.
-- **Job status chips** are one shared component: queued (neutral), processing (info), done (success), failed (error).
+- **Distress classes are never color alone.** Always pair a marker or chip color with its class label or icon.
+- **Distress classes are defined once** (class → label, icon, theme color token) in `web/app/constants/distress.ts`, matching `api/app/domain/distress.py`. Don't redefine them in components. Detections are bounding boxes with class and confidence only (no severity levels).
+- **Job status chips** are one shared component: `queued` (neutral), `processing` (info), `done` (success), `failed` (error).
 - **Buttons:** one filled `v-btn` (primary action) per screen. Use `tonal` for secondary and `text` for tertiary. Destructive actions need a confirm dialog.
 
 ## Layout
 
-- **Desktop (`md` and up):** a navigation rail (`v-navigation-drawer` with `rail`) on the left, the map as the main area, and a side panel for lists, filters, and detection details. Nav items: **Map**, **Videos**, **Settings**.
+- **Desktop (`md` and up):** a navigation rail (`v-navigation-drawer` with `rail`) on the left, the map as the main area, and a side panel for lists, filters, and detection details. Nav items: **Map**, **Uploads**, **Settings**.
 - **Phone (below `md`):** the map fills the screen. Navigation becomes a bottom bar (`v-bottom-navigation`), and the side panel becomes a bottom sheet (`v-bottom-sheet`).
 - Build each panel's content once as a component and place it in the side panel or the bottom sheet depending on screen size. Don't duplicate screens per device.
 - Switch layouts with Vuetify's `useDisplay()`, not with custom media queries.
@@ -69,9 +66,9 @@ export default defineVuetifyConfiguration({
 
 ## Screens
 
-- **Map:** detections colored by severity, a legend, and a filter by class or severity.
-- **Videos:** the upload button, and a list of videos with job status and progress.
-- **Detection detail:** the frame image, class, severity, confidence, location, and time.
+- **Map:** detections colored by distress class, a legend, and a filter by class.
+- **Uploads:** the upload button (for video + optional `.SRT`, or drone photos), and a list of uploads with job status and progress.
+- **Detection detail:** the frame image with bounding box overlay, distress class, confidence, location, and time.
 
 ## Don't
 

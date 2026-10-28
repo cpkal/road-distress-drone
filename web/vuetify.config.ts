@@ -3,6 +3,9 @@ import { defineVuetifyConfiguration } from 'vuetify-nuxt-module/custom-configura
 
 export default defineVuetifyConfiguration({
   blueprint: md3,
+  icons: {
+    defaultSet: 'mdi-svg',
+  },
   theme: {
     defaultTheme: 'dark',
     themes: {
@@ -16,13 +19,9 @@ export default defineVuetifyConfiguration({
           error: '#FFB4AB',
           success: '#81C784',
           info: '#4FC3F7',
-          // Distress severity: used by map markers, chips, and legend
-          'severity-low': '#FFD54F',
-          'severity-medium': '#FF9800',
-          'severity-high': '#F44336',
+          warning: '#FFD54F',
         },
       },
     },
   },
 })
-

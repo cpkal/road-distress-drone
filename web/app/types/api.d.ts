@@ -4,6 +4,109 @@
  */
 
 export interface paths {
+    "/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Uploads */
+        get: operations["get_uploads_uploads_get"];
+        put?: never;
+        /** Post Upload */
+        post: operations["post_upload_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Upload */
+        get: operations["get_upload_uploads__upload_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads/{upload_id}/detections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Upload Detections */
+        get: operations["get_upload_detections_uploads__upload_id__detections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/frames/{frame_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Frame Image */
+        get: operations["get_frame_image_frames__frame_id__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/detections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Detections */
+        get: operations["get_detections_detections_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/detections/{detection_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Detection */
+        get: operations["get_detection_detections__detection_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -24,7 +127,260 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        /** Body_post_upload_uploads_post */
+        Body_post_upload_uploads_post: {
+            /** Files */
+            files: string[];
+        };
+        /** DetectionDetail */
+        DetectionDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            class: components["schemas"]["DistressClass"];
+            /** Confidence */
+            confidence: number;
+            /** Bbox */
+            bbox: number[];
+            location: components["schemas"]["GeoJSONPoint"] | null;
+            /** Location Accuracy M */
+            location_accuracy_m?: number | null;
+            /** Oblique */
+            oblique: boolean;
+            /** Timestamp */
+            timestamp: number;
+            /** Source File */
+            source_file: string;
+            /**
+             * Upload Id
+             * Format: uuid
+             */
+            upload_id: string;
+            upload_kind: components["schemas"]["UploadKind"];
+            /**
+             * Upload Created At
+             * Format: date-time
+             */
+            upload_created_at: string;
+            /**
+             * Frame Id
+             * Format: uuid
+             */
+            frame_id: string;
+            /** Image Url */
+            image_url: string;
+        };
+        /** DetectionFeature */
+        DetectionFeature: {
+            /**
+             * Type
+             * @default Feature
+             * @constant
+             */
+            type: "Feature";
+            geometry: components["schemas"]["GeoJSONPoint"] | null;
+            properties: components["schemas"]["DetectionProperties"];
+        };
+        /** DetectionFeatureCollection */
+        DetectionFeatureCollection: {
+            /**
+             * Type
+             * @default FeatureCollection
+             * @constant
+             */
+            type: "FeatureCollection";
+            /** Features */
+            features: components["schemas"]["DetectionFeature"][];
+        };
+        /** DetectionProperties */
+        DetectionProperties: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            class: components["schemas"]["DistressClass"];
+            /** Confidence */
+            confidence: number;
+            /** Bbox */
+            bbox: number[];
+            /**
+             * Frame Id
+             * Format: uuid
+             */
+            frame_id: string;
+            /** Image Url */
+            image_url: string;
+            /** Timestamp */
+            timestamp: number;
+            /** Location Accuracy M */
+            location_accuracy_m?: number | null;
+            /** Oblique */
+            oblique: boolean;
+        };
+        /**
+         * DistressClass
+         * @enum {string}
+         */
+        DistressClass: "transverse_cracking" | "longitudinal_cracking" | "alligator_cracking" | "patch" | "pothole";
+        /** GeoJSONPoint */
+        GeoJSONPoint: {
+            /**
+             * Type
+             * @default Point
+             * @constant
+             */
+            type: "Point";
+            /** Coordinates */
+            coordinates: [
+                number,
+                number
+            ];
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** MapDetectionFeature */
+        MapDetectionFeature: {
+            /**
+             * Type
+             * @default Feature
+             * @constant
+             */
+            type: "Feature";
+            geometry: components["schemas"]["GeoJSONPoint"];
+            properties: components["schemas"]["MapDetectionProperties"];
+        };
+        /** MapDetectionFeatureCollection */
+        MapDetectionFeatureCollection: {
+            /**
+             * Type
+             * @default FeatureCollection
+             * @constant
+             */
+            type: "FeatureCollection";
+            /** Features */
+            features: components["schemas"]["MapDetectionFeature"][];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /** MapDetectionProperties */
+        MapDetectionProperties: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            class: components["schemas"]["DistressClass"];
+            /** Confidence */
+            confidence: number;
+            /**
+             * Upload Id
+             * Format: uuid
+             */
+            upload_id: string;
+        };
+        /** UploadCreateResponse */
+        UploadCreateResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["UploadStatus"];
+        };
+        /** UploadDetail */
+        UploadDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["UploadKind"];
+            status: components["schemas"]["UploadStatus"];
+            /** Progress */
+            progress: number;
+            /**
+             * Frame Count
+             * @default 0
+             */
+            frame_count: number;
+            /**
+             * Detection Count
+             * @default 0
+             */
+            detection_count: number;
+            /** Warnings */
+            warnings?: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error?: string | null;
+        };
+        /**
+         * UploadKind
+         * @enum {string}
+         */
+        UploadKind: "video" | "photos";
+        /**
+         * UploadStatus
+         * @enum {string}
+         */
+        UploadStatus: "queued" | "processing" | "done" | "failed";
+        /** UploadSummary */
+        UploadSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["UploadKind"];
+            status: components["schemas"]["UploadStatus"];
+            /** Progress */
+            progress: number;
+            /**
+             * Frame Count
+             * @default 0
+             */
+            frame_count: number;
+            /**
+             * Detection Count
+             * @default 0
+             */
+            detection_count: number;
+            /** Warnings */
+            warnings?: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -33,6 +389,213 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_uploads_uploads_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadSummary"][];
+                };
+            };
+        };
+    };
+    post_upload_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_post_upload_uploads_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upload_uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_upload_detections_uploads__upload_id__detections_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectionFeatureCollection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_frame_image_frames__frame_id__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                frame_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_detections_detections_get: {
+        parameters: {
+            query?: {
+                class?: components["schemas"]["DistressClass"][] | null;
+                upload_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapDetectionFeatureCollection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_detection_detections__detection_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                detection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectionDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_health_get: {
         parameters: {
             query?: never;

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Web app that takes DJI Mini SE drone video of roads, detects road distress (cracks, potholes, etc.) with a trained YOLO model, and shows the geolocated results on a map. Solo project: keep things simple, no extra infrastructure unless asked.
+Web app that takes DJI Mini SE drone video (or drone photos with metadata) of roads, detects road distress (cracks, potholes, etc.) as bounding boxes with a trained YOLO model, and shows the geolocated results on a map. Solo project: keep things simple, no extra infrastructure unless asked.
 
 ## Layout
 
@@ -15,7 +15,7 @@ Web app that takes DJI Mini SE drone video of roads, detects road distress (crac
 - Python 3.14, managed by `uv` (pinned in `api/.python-version`). Don't rely on the system Python. If a dependency (torch, ultralytics, opencv) has no wheel for 3.14 or fails to install, tell me. The fallback is 3.13. Don't switch versions silently. (Verified: everything installs on 3.14.8. uv's venv currently uses the system 3.14 interpreter.)
 - `uv` must be installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`, goes to `~/.local/bin`)
 - PostgreSQL + PostGIS via `docker compose` (runs only the DB)
-- `ffmpeg` and `ffprobe` must be on PATH
+- `ffmpeg`, `ffprobe`, and `exiftool` must be on PATH
 - Pinned on purpose: `typescript@^6` (TS 7 breaks `vue-tsc` and `typescript-eslint`), `vuetify@^3` (DESIGN.md is Vuetify 3), torch and torchvision from the CPU-only index (`[tool.uv.sources]` in `api/pyproject.toml`, avoids ~3 GB of CUDA wheels). Don't bump these without asking.
 
 ## Setup (once)
@@ -49,13 +49,14 @@ If a command here doesn't exist yet or fails, tell me. Don't invent a replacemen
 
 ## Domain rules (important)
 
-- **Coordinates:** store WGS84 (EPSG:4326). GeoJSON, PostGIS, and MapLibre all use **[longitude, latitude]**. Mixing this up is the most likely bug here.
-- **GPS from video:** Mini SE telemetry is a subtitle track. Check for a sidecar `.SRT` first; if there isn't one, extract the embedded subtitle stream with ffmpeg (`ffprobe` to find it). Never assume the format. Parse defensively.
-- **Telemetry is coarse.** It can be sparse (about 1 sample/second) and rounded. Interpolate by timestamp for frames in between, and store an accuracy value with each detection instead of treating the point as exact.
-- **Position is the drone's, not the road's.** Assume near-straight-down footage unless a spec says otherwise.
-- **Don't run YOLO on every frame.** Sample frames, and de-duplicate the same defect across overlapping frames before saving.
-- **Distress classes** are defined in one place: `api/app/domain/distress.py`, mapped from the model's class names. Don't invent or rename them elsewhere.
-- **Heavy work** (video decode, inference) goes in a plain `def` function run as a background task, never in an `async def` handler (it would block the event loop) and never inside the request. The API returns a job ID; the frontend polls status. On startup, mark jobs left "running" as failed.
+- **Coordinates:** store WGS84 (EPSG:4326). GeoJSON, PostGIS, and MapLibre all use **[longitude, latitude]**. Mixing this up is the most likely bug here. Treat `(0, 0)` ("Null Island" before GPS lock) as missing GPS (`null`).
+- **GPS from video:** Mini SE telemetry is a subtitle track. Check for a sidecar `.SRT` first; if there isn't one, extract the embedded subtitle stream with ffmpeg (`ffprobe` to find it). Never assume a single DJI `.SRT` layout—parse defensively.
+- **GPS from photos (second option):** When the user uploads drone photos (`.jpg` / `.jpeg`) instead of video, read metadata with `exiftool -j -n` (signed decimal degrees): check standard EXIF GPS first, then fall back to DJI XMP tags (`GpsLatitude`, `GpsLongitude`, `GimbalPitchDegree`).
+- **Telemetry is coarse.** It can be sparse (about 1 sample/second) and rounded. Interpolate by timestamp for frames in between, and store an accuracy value (`location_accuracy_m`) with each frame instead of treating the point as exact.
+- **Position is the drone's, not the road's.** Assume near-straight-down footage unless gimbal pitch metadata shows otherwise (`> 20°` away from `-90°` nadir is marked `oblique`).
+- **Don't run YOLO on every frame.** Sample frames, and de-duplicate the same defect across consecutive overlapping frames before saving (never merge distinct detections within the same frame).
+- **Distress classes (object detection only, no severity):** defined in one place: `api/app/domain/distress.py`, mapped from the model's class names. Detections only store class, confidence, and normalized bounding box `[x_min, y_min, x_max, y_max]`—no severity levels. Don't invent or rename classes elsewhere.
+- **Heavy work** (video decode, metadata extraction, inference) goes in a plain `def` function run as a background task, never in an `async def` handler (it would block the event loop) and never inside the request. The API returns a job ID; the frontend polls status (`queued` → `processing` → `done` | `failed`). On startup, mark any jobs left in `queued` or `processing` as `failed`.
 - **Map component must be client-only** (`<ClientOnly>` or `.client.vue`). MapLibre breaks under Nuxt SSR.
 
 ## Don't touch / never commit

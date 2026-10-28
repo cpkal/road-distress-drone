@@ -1,0 +1,11 @@
+1
+00:00:00,000 --> 00:00:01,000
+<font size="28">F/2.8, SS 500, ISO 100, EV 0, [latitude: 13.756300] [longitude: 100.501700] [rel_alt: 25.400 abs_alt: 30.100] [gimbal_pitch: -89.0]</font>
+
+2
+00:00:01,000 --> 00:00:02,000
+<font size="28">F/2.8, SS 500, ISO 100, EV 0, [latitude: 13.756400] [longitude: 100.501800] [rel_alt: 25.500 abs_alt: 30.200] [gimbal_pitch: -89.0]</font>
+
+3
+00:00:02,000 --> 00:00:03,000
+<font size="28">F/2.8, SS 500, ISO 100, EV 0, [latitude: 13.756500] [longitude: 100.501900] [rel_alt: 25.500 abs_alt: 30.200] [gimbal_pitch: -88.0]</font>

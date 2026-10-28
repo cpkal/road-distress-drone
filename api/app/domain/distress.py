@@ -1,3 +1,67 @@
-# Single source of truth for distress classes (mapped from the model's class names).
-# Intentionally empty: classes are added with the detection feature.
+from dataclasses import dataclass
+from enum import StrEnum
 
+
+class UnknownDistressClassError(ValueError):
+    """Raised when a model outputs a class name not registered in DISTRESS_CLASSES."""
+
+
+class DistressClass(StrEnum):
+    TRANSVERSE_CRACKING = "transverse_cracking"
+    LONGITUDINAL_CRACKING = "longitudinal_cracking"
+    ALLIGATOR_CRACKING = "alligator_cracking"
+    PATCH = "patch"
+    POTHOLE = "pothole"
+
+
+@dataclass(frozen=True, slots=True)
+class DistressClassInfo:
+    key: DistressClass
+    label: str
+
+
+DISTRESS_CLASSES: dict[DistressClass, DistressClassInfo] = {
+    DistressClass.TRANSVERSE_CRACKING: DistressClassInfo(
+        key=DistressClass.TRANSVERSE_CRACKING,
+        label="Transverse cracking",
+    ),
+    DistressClass.LONGITUDINAL_CRACKING: DistressClassInfo(
+        key=DistressClass.LONGITUDINAL_CRACKING,
+        label="Longitudinal cracking",
+    ),
+    DistressClass.ALLIGATOR_CRACKING: DistressClassInfo(
+        key=DistressClass.ALLIGATOR_CRACKING,
+        label="Alligator cracking",
+    ),
+    DistressClass.PATCH: DistressClassInfo(
+        key=DistressClass.PATCH,
+        label="Patch",
+    ),
+    DistressClass.POTHOLE: DistressClassInfo(
+        key=DistressClass.POTHOLE,
+        label="Pothole",
+    ),
+}
+
+_MODEL_NAME_LOOKUP: dict[str, DistressClass] = {}
+for _cls, _info in DISTRESS_CLASSES.items():
+    _MODEL_NAME_LOOKUP[_cls.value] = _cls
+    _MODEL_NAME_LOOKUP[_info.label.lower()] = _cls
+
+
+def normalize_distress_class(raw_name: str) -> DistressClass:
+    """Map a model class name to a canonical DistressClass, or raise UnknownDistressClassError."""
+    cleaned = " ".join(
+        raw_name.strip().lower().replace("-", " ").replace("_", " ").split()
+    )
+    underscored = cleaned.replace(" ", "_")
+
+    if underscored in _MODEL_NAME_LOOKUP:
+        return _MODEL_NAME_LOOKUP[underscored]
+    if cleaned in _MODEL_NAME_LOOKUP:
+        return _MODEL_NAME_LOOKUP[cleaned]
+
+    valid = ", ".join(c.value for c in DistressClass)
+    raise UnknownDistressClassError(
+        f"Unknown model distress class '{raw_name}'. Allowed classes: {valid}."
+    )

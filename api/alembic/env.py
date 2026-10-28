@@ -1,8 +1,10 @@
 from logging.config import fileConfig
 
 import geoalchemy2  # noqa: F401  (registers spatial types for autogenerate)
+from geoalchemy2 import alembic_helpers
 from sqlalchemy import engine_from_config, pool
 
+import app.models  # noqa: F401  (registers all models on Base.metadata)
 from alembic import context
 from app.config import get_settings
 from app.models.base import Base
@@ -54,6 +56,8 @@ def run_migrations_offline() -> None:
         url=url,
         target_metadata=target_metadata,
         include_object=include_object,
+        process_revision_directives=alembic_helpers.writer,
+        render_item=alembic_helpers.render_item,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -80,6 +84,8 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             include_object=include_object,
+            process_revision_directives=alembic_helpers.writer,
+            render_item=alembic_helpers.render_item,
         )
 
         with context.begin_transaction():
